@@ -3,6 +3,7 @@
 
 DROP TABLE IF EXISTS results;
 DROP TABLE IF EXISTS attendance;
+DROP TABLE IF EXISTS class_transfers;
 DROP TABLE IF EXISTS class_subjects;
 DROP TABLE IF EXISTS enrollments;
 DROP TABLE IF EXISTS classes;
@@ -167,5 +168,48 @@ CREATE TABLE attendance (
         FOREIGN KEY (admission_number)
         REFERENCES students (admission_number)
         ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE class_transfers (
+    transfer_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    admission_number VARCHAR(20) NOT NULL,
+    term_id INT UNSIGNED NOT NULL,
+    from_class_id INT UNSIGNED NOT NULL,
+    to_class_id INT UNSIGNED NOT NULL,
+    transferred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor_staff_number VARCHAR(20) NULL,
+    PRIMARY KEY (transfer_id),
+    KEY idx_class_transfers_student_term (admission_number, term_id),
+    CONSTRAINT chk_class_transfers_different_classes
+        CHECK (from_class_id <> to_class_id),
+    -- RESTRICT preserves the audit trail; CASCADE keeps it attached to a corrected student ID.
+    CONSTRAINT fk_class_transfers_student
+        FOREIGN KEY (admission_number)
+        REFERENCES students (admission_number)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    -- RESTRICT keeps referenced classes from being removed; CASCADE tracks class-ID corrections.
+    CONSTRAINT fk_class_transfers_from_class
+        FOREIGN KEY (from_class_id)
+        REFERENCES classes (class_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_class_transfers_to_class
+        FOREIGN KEY (to_class_id)
+        REFERENCES classes (class_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    -- RESTRICT retains term context; CASCADE tracks term-ID corrections.
+    CONSTRAINT fk_class_transfers_term
+        FOREIGN KEY (term_id)
+        REFERENCES terms (term_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    -- Retain the transfer if staff leave by clearing the optional actor reference.
+    CONSTRAINT fk_class_transfers_actor
+        FOREIGN KEY (actor_staff_number)
+        REFERENCES teachers (staff_number)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
